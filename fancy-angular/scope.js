@@ -523,7 +523,10 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                         $scope[name +'List'] = $parentScope[attr_obj][attr_name];
                     }
                     $parentScope.$watch( attr_obj +'.' + attr_name, function() {
-                        $scope.log.debug('parents '+attr_obj+'.'+attr_name+' has changed', $parentScope[attr_obj], $parentScope[attr_obj][attr_name]);
+                        if ($parentScope[attr_obj][attr_name] === undefined) {
+                            $scope.log.debug('(scope)', 'skipped '+attr_obj+'.'+attr_name+' changes, because its undefied.', $parentScope[attr_obj]);
+                        }
+                        $scope.log.debug('(scope)', 'parents '+attr_obj+'.'+attr_name+' has changed', $parentScope[attr_obj], $parentScope[attr_obj][attr_name]);
                         $scope[name +'List'] = $parentScope[attr_obj][attr_name];
                         $scope._initAttr('!all', {force_update: false});
                     });
