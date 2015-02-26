@@ -119,7 +119,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                     fancyRequirements.push($scope.__required[key] + '?');
                 }
                 requirejs.undef($scope.__required[key])
-                $scope.log.debug('removed cached requirement', $scope.__required[key])
+                $scope.log.debug('(scope)', 'removed cached requirement', $scope.__required[key])
             }
             if (fancyRequirements.length) {
                 // get the url(s) from fancyPlugin
@@ -174,7 +174,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                 asNew = false;
             delete settings.config;
             var provider, fixture;
-            $scope.log.debug('getting object', settings, 'fixtures:', $scope.__fixtures);
+            $scope.log.debug('(scope)', 'getting object', settings, 'fixtures:', $scope.__fixtures);
             
             if ((settings.target == 'uuid' && settings.data === null) || $scope['__' + attr_obj + 'AsNew']) {
                 asNew = true;
@@ -186,14 +186,14 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             }
             if (!fixture) {
                 for (var name in $scope.__fixtures){
-                    if ($scope.__fixtures[name] === undefined) {$scope.log.debug('fixture "', name, '" stil loading')
+                    if ($scope.__fixtures[name] === undefined) {$scope.log.debug('(scope)', 'fixture "', name, '" stil loading')
                         return undefined // wait until all fixtures are loaded
                     }
                     for (var key in $scope.__fixtures[name]){
                         var _fixture = $scope.__fixtures[name][key];
                         if (settings.target == 'relationship') {
                             if (_fixture.uuid == config.parentObj.__getID()/*$parentScope.__wdigetResource*/ && _fixture[settings.data]) {
-                                $scope.log.debug('found relationship in fixture');
+                                $scope.log.debug('(scope)', 'found relationship in fixture');
                                 fixture = _fixture[settings.data];
                                 break;
                             }
@@ -215,7 +215,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                                 break;
                             }*/
                             if (_fixture.uuid == settings.data) {
-                                $scope.log.debug('found uuid fixture');
+                                $scope.log.debug('(scope)', 'found uuid fixture');
                                 fixture = _fixture;
                                 break;
                             }
@@ -283,24 +283,24 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
         };
         
         if ($scope.__type == 'widget') {
-            $scope.log.debug('init _resource scope', $scope)
+            $scope.log.debug('(scope)', 'init _resource scope', $scope)
         
             $scope.updateResource = function (resource) {
                 if (resource === undefined) {
                     $scope.log.debug('(FancyAngular)', '(Directives)', '(Scope)', 'skipping updating with', resource);
                     return resource
                 }
-                $scope.log.debug('trying to update with', resource);
+                $scope.log.debug('(scope)', 'trying to update with', resource);
                 var attr_obj = 'resource',
                     obj = resource;
                 if (!(resource && resource.__path && resource.__path.target)) {
                         var old = $scope['_resource'];
                     if (old && old.__path && old.__path.target && !old.isBlank() && !old.isCreated()) {
-                        $scope.log.debug('skip updating', old, 'with new', config);
+                        $scope.log.debug('(scope)', 'skip updating', old, 'with new', config);
                         return old
                     }
                     var config = $scope._getAttrValueConfig('resource');
-                    $scope.log.debug('no resource exitent, yet. offer new', config);
+                    $scope.log.debug('(scope)', 'no resource exitent, yet. offer new', config);
                         
                     var old_resource = resource;
                     resource = $scope.object(config)
@@ -308,7 +308,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                         return undefined
                     }
                     if (old_resource && old_resource.replaceWith) {
-                        $scope.log.debug('no resource exitent, yet. offer new');
+                        $scope.log.debug('(scope)', 'no resource exitent, yet. offer new');
                         old_resource.replaceWith(resource);
                     }
                 }
@@ -397,16 +397,16 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                 if (name == '!all') {
                     var done = null;
                     if ($scope._attrs.length) {
-                        $scope.log.debug('refreshing scope attrs');
+                        $scope.log.debug('(scope)', 'refreshing scope attrs');
                     }else{
-                        $scope.log.debug('not refreshing scope attrs, none there');
+                        $scope.log.debug('(scope)', 'not refreshing scope attrs, none there');
                     }
                     
                     for (var key in $scope._attrs){
                         try {
                             $scope._initAttr($scope._attrs[key], settings)
                         } catch(e) {
-                            $scope.log.error('couldnt init attr', $scope._attrs[key], e)
+                            $scope.log.error('(scope)', 'couldnt init attr', $scope._attrs[key], e)
                             done = false;
                         }
                         
@@ -417,7 +417,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                     settings = {};
                 }
                 
-                $scope.log.debug('init scope attr "' + name + '"');
+                $scope.log.debug('(scope)', 'init scope attr "' + name + '"');
                 if ($scope._attrs.indexOf(name) == -1) {
                     $scope._attrs.push(name);
                 }
@@ -532,22 +532,22 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                     });
                     
                     $parentScope.$watch('__'+attr_obj+'Relationships.' + attr_name, function() {
-                        $scope.log.debug('parents __'+attr_obj+'Relationships.'+attr_name+' has changed', $parentScope['__'+attr_obj+'Relationships'], $parentScope['__'+attr_obj+'Relationships'][attr_name]);
+                        $scope.log.debug('(scope)', 'parents __'+attr_obj+'Relationships.'+attr_name+' has changed', $parentScope['__'+attr_obj+'Relationships'], $parentScope['__'+attr_obj+'Relationships'][attr_name]);
                         $scope.updateResource($parentScope['__'+attr_obj+'Relationships'][attr_name]);
                     });
                 }
             };
             
         }else{
-            $scope.log.debug('init plugin scope', $scope);
+            $scope.log.debug('(scope)', 'init plugin scope', $scope);
             
             $scope.updateResource = $scope._initAttr = $scope.prepareResource = function() {
-                $scope.log.error('not available for plugins');
+                $scope.log.error('(scope)', 'not available for plugins');
             }
         }
     
         for (var key in jsConfig) {
-            $scope.log.debug('jsConfig: ', key, jsConfig[key])
+            $scope.log.debug('(scope)', 'jsConfig: ', key, jsConfig[key])
             $scope[key] = jsConfig[key];
         }
         $scope.__fixtures = {};
@@ -555,7 +555,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             return $fancyAngularLocalesLoader.addPart(name);
         };
         $scope.addFixture = function(name, content){
-            $scope.log.debug('updating fixture "', name, '" with', content)
+            $scope.log.debug('(scope)', 'updating fixture "', name, '" with', content)
             $scope.__fixtures[name] = content;
             $scope._initAttr('!all', {force_update: false});
         };
@@ -566,15 +566,15 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
         $scope._watchedObjects = [];
         $scope._initAttrBindings = function(obj){
             if (!!!obj.__event_handler) {
-                $scope.log.debug('skip init scope.attr bindings for', obj, 'because seems to be attribute')
+                $scope.log.debug('(scope)', 'skip init scope.attr bindings for', obj, 'because seems to be attribute')
                 return
             }
             if ($scope._watchedObjects.indexOf(obj) != -1) {
-                $scope.log.debug('skip init scope.attr bindings for', obj, 'because seems to be bound already to this scope')
+                $scope.log.debug('(scope)', 'skip init scope.attr bindings for', obj, 'because seems to be bound already to this scope')
                 return
             }
             $scope._watchedObjects.push(obj);
-            $scope.log.debug('init scope.attr bindings for', obj)
+            $scope.log.debug('(scope)', 'init scope.attr bindings for', obj)
             obj.bind('post-*', function(event, apiResult){
                 $scope.log.event.apply(null, arguments)
                 if (apiResult.action != 'fixture') {
@@ -582,23 +582,23 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                 }
             })
             obj.bind('start-loading*', function(event, apiResult){
-                $scope.log.event('start loading', event, apiResult)
+                $scope.log.event('(scope)', 'start loading', event, apiResult)
                 $scope['!private'].$widget.start_loading();
             })
             obj.bind('finished-loading*', function(event, apiResult){
-                $scope.log.event('end loading', event, apiResult)
+                $scope.log.event('(scope)', 'end loading', event, apiResult)
                 $scope['!private'].$widget.finished_loading();
             })
             obj.bind('replaced', function(event, new_obj){
-                $scope.log.event('replaced', obj, 'with', new_obj)
+                $scope.log.event('(scope)', 'replaced', obj, 'with', new_obj)
                 $scope._initAttrBindings(new_obj);
             })
             obj.bind('accessed-related', function(event, new_obj){
-                $scope.log.event('accessed', new_obj, 'from', obj)
+                $scope.log.event('(scope)', 'accessed', new_obj, 'from', obj)
                 $scope._initAttrBindings(new_obj);
             })
             obj.bind('accessed-clone', function(event, new_obj){
-                $scope.log.event('accessed new', new_obj, 'from', obj)
+                $scope.log.event('(scope)', 'accessed new', new_obj, 'from', obj)
                 $scope._initAttrBindings(new_obj);
             })
         };
