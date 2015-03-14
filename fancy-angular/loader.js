@@ -131,6 +131,47 @@ define(['fancyPlugin!jquery', 'fancyPlugin!fancyFrontendCore'], function($, core
 
                 angular.resumeBootstrap();
             });
+            
+            var $this = coreApp;
+            var debug_requesting = false;
+            var debug_requested = false;
+            $(window).keydown(function(event){
+                if (event.which == 68 && event.shiftKey && event.altKey && !debug_requesting) {
+                    debug_requested = true;
+                    debug_requesting = true;
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    return false
+                }
+                return true
+            })
+            $(window).keyup(function(event){
+                if (event.which == 68 && debug_requesting) {
+                    if (debug_requested) {
+                        var $widget = $('<div></div>');
+                        $this.create_widget($widget, 'fancyOS.debug', {closable: true});  
+                        $this.appendElement($widget)
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+                        debug_requested = false;
+                    }
+                    debug_requesting = false;
+                    return false
+                }
+                return true
+            })
+            $(window).click(function(event){
+                if (debug_requested) {
+                    var $widget = $('<div></div>');
+                    $this.create_widget($widget, 'fancyOS.debug', {closable: true, target:event.target});  
+                    $this.appendElement($widget)
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    debug_requested = false;
+                    return false
+                }
+                return true
+            })
         },
 
 
