@@ -315,7 +315,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                 
                 if (resource.__path.target == 'relationship') {
                     if ($scope['_resourceList'] !== resource) {
-                        $scope.log.debug(' updating resourceList', $scope['_resourceList'], 'with', resource)
+                        $scope.log.debug('(scope)', 'updating resourceList', $scope['_resourceList'], 'with', resource)
                         var old = $scope['_resourceList'];                             
                         $scope['_resourceList'] = resource;
                         old.replaceWith(resource);
@@ -327,7 +327,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                     }
                 }else{
                     if ($scope['_resource'] !== resource) {
-                        $scope.log.debug(' updating resource', $scope['_resource'], 'with', resource)
+                        $scope.log.debug('(scope)', 'updating resource', $scope['_resource'], 'with', resource)
                         var old = $scope['_resource'];
                         $scope['_resource'] = resource;
                         old.replaceWith(resource);
@@ -425,7 +425,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                 // TODO - don't just take the first, get the primary (_resourceList.primary()?)
                 if ($scope['__' + name + 'AsPrimary']){
                     //$scope.__defaultWidgetView == 'detail' && $scope.resourceList && $scope.resourceList.length) {
-                    $scope.log.debug('display list as the primary element', ($scope['__' + name + 'AsNew'] ? 'and as new' : ''), 'of list', $scope[name + 'List'])
+                    $scope.log.debug('(scope)', 'display list as the primary element', ($scope['__' + name + 'AsNew'] ? 'and as new' : ''), 'of list', $scope[name + 'List'])
                     $scope['__'+ name +'Target'] = 'uuid';
                     if ($scope['__' + name + 'AsNew'] || (!$scope[name + 'List'] || $scope[name +'List'].length == 0)) {
                         $scope['__'+ name +'Id'] = null;
@@ -436,7 +436,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                 }
                 var obj = $scope.object($scope._getAttrValueConfig(name), settings)
                 if (settings.force_update === false && (!obj || ($scope['_'+ name ] && !$scope['_'+ name ].isBlank() && (obj.isBlank() || (!obj.isCreated() && !$scope['_'+ name ].isCreated()))))) {
-                    $scope.log.debug('skip updating', $scope['_'+ name ], 'with', obj, 'because its just a weak update')
+                    $scope.log.debug('(scope)', 'skip updating', $scope['_'+ name ], 'with', obj, 'because its just a weak update')
                     return $scope['_'+ name ]
                 }
                 return $scope.updateResource(obj);
@@ -455,7 +455,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                     attr_name = widgetReferenceParts[0];
                 }else{
                     var error = new Error()
-                    $scope.log.error(str, 'is not a valid reference to parent', error)
+                    $scope.log.error('(scope)', str, 'is not a valid reference to parent', error)
                     throw error
                 }
                 return {
