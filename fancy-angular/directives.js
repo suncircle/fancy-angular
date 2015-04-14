@@ -363,13 +363,16 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
                     $element.addClass(frontendCore.config.frontend_generateClassName('action'))
                 if (widgetConfig.icon) {
                     $element.addClass(frontendCore.config.frontend_generateClassName('shape-icon'))
+                    $element.addClass(frontendCore.config.frontend_generateClassName('action-' + widgetConfig.icon))
+                    $element.attr('tabindex', -1)
                 }
                 var startupHandler = function(){
                     $element.unbind('click', startupHandler);
-                    $element.removeClass(frontendCore.config.frontend_generateClassName('action'));
+                    $element.unbind('focus', startupHandler);
+                    //$element.removeClass(frontendCore.config.frontend_generateClassName('action'));
                     fancyWidgetWatchAction(widgetConfig.widgetIdentifier, widgetConfig);
                 }
-                $element.bind('click', startupHandler)
+                $element.bind('click focus', startupHandler)
                 return
             }else if (widgetConfig.widgetState['.']._active === false) {
                 //$element.remove()
