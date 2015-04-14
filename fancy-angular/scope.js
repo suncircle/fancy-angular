@@ -20,7 +20,8 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             $scope.$apply();
             $scope.$emit('applied');
         };
-        $scope.__log_storage = [];
+        $scope.translate = function(identifier, callback){$translate(identifier).then(callback)};
+        $scope.__log_storage = widgetConfig.plugin ? $parentScope.__log_storage : [];
         $scope.log = {
             error: function(){
                 if (true) {
@@ -35,9 +36,9 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                     }
                     $scope.__log_storage.push({type: 'error', timestamp:new Date().getTime(), content:content, stack:stack})
                     $scope.log.failure('Error.') // TODO: get translated default error Message for user
-                }else{
-                    console.error.apply(console, arguments)
+                    
                 }
+                console.error.apply(console, arguments)
             },
             event: function(){
                 if (true) {
