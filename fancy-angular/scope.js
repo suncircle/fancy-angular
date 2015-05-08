@@ -684,6 +684,17 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             
         }else{
             $scope.log.debug('(scope)', '('+$scope.__type+')', 'init plugin scope', $scope);
+            $scope._prepareAttr = function(name, initialValue, attrReference, asPrimary){
+                if ($scope.__widgetReference == name) {
+                    $scope['_'+ name] = $parentScope['_' + name]
+                    $scope['_'+ name +'List'] = $parentScope['_' + name + 'List']
+                    $scope[name] = $parentScope[name]
+                    $scope[name +'List'] = $parentScope[name + 'List']
+                    $scope.log('(scope)', '('+$scope.__type+')', 'prepared', name)
+                }else{
+                    $scope.log.error('(scope)', '('+$scope.__type+')', 'cannot prepare', name)
+                }
+            }
             $scope.updateResource = $scope._initAttr = $scope.prepareResource = function() {
                 $scope.log.error('(scope)', '('+$scope.__type+')', 'not available for plugins');
             }
