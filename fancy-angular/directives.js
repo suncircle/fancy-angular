@@ -305,6 +305,7 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
                 widgetDependencies.push('fancyPlugin!css:'+ (widgetConfig.widgetCSS || (namespace?namespace+':':'') + identifier))
                 dependencies.push('css');
             }*/
+            
             if (widgetConfig.required.length) {
               require(widgetConfig.required, function(){
                     var response = dependencies.indexOf('template')>=0 ? arguments[dependencies.indexOf('template')] : null,
@@ -322,6 +323,7 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
                         // TODO: get some fallback stuff
                         console.error('couldnt find js for widget', widgetConfig.widgetIdentifier)
                     }
+                    
                     prepareTemplate(response, js);
                 }, function(e) {
                     error++;

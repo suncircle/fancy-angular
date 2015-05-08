@@ -320,7 +320,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
         };
         
         if ($scope.__type == 'widget') {
-            $scope.log.debug('(scope)', 'init _resource scope', $scope)
+            $scope.log.debug('(scope)', '('+$scope.__type+')', 'init _resource scope', $scope)
         
             $scope.updateResource = function (resource) {
                 if (resource === undefined) {
@@ -630,10 +630,9 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             };
             
         }else{
-            $scope.log.debug('(scope)', 'init plugin scope', $scope);
-            
+            $scope.log.debug('(scope)', '('+$scope.__type+')', 'init plugin scope', $scope);
             $scope.updateResource = $scope._initAttr = $scope.prepareResource = function() {
-                $scope.log.error('(scope)', 'not available for plugins');
+                $scope.log.error('(scope)', '('+$scope.__type+')', 'not available for plugins');
             }
         }
     
