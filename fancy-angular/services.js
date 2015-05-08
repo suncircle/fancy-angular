@@ -17,6 +17,9 @@ define(['fancyPlugin!angular'], function (angular) {
     this.$get = function($q) {
         var stage = this.stage;
         return {
+            getDefaultConnection: function(){
+                return frontendCore.endpoint
+            },
             get: function(x, y , z){
                 return frontendCore.endpoint.ajax.access.apply(frontendCore.endpoint.ajax, arguments)
             },

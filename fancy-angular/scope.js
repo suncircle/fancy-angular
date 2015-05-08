@@ -100,15 +100,44 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             }
         }
         $scope._accessApiEndpoint = function(){
-            var apiObj = $ApiProvider.get.apply(null, arguments);
+            var apiClient = $scope.getConnection().ajax;
+            var apiObj = apiClient.get.apply(apiClient, arguments);
             apiObj.setLog($scope.log);
             $scope._initAttrBindings(apiObj);
             return apiObj
         }
+        $scope.getConnection = function(){
+            var connection = $parentScope._connection ? $parentScope._connection : $ApiProvider.getDefaultConnection();
+            if ($scope._connection != connection) {
+                $scope.setConnection(connection);
+            }
+            return connection;
+        }
+        $scope.setConnection = function(connection){
+            $scope._connection = connection;
+        }
+        $scope.$watch('_connection', function(newValue, oldValue){
+            if (newValue === oldValue || oldValue === undefined) {
+                $scope.log.debug('(fancy-angular)', '(scope)', '(connection)', 'skipped update')
+                return
+            }
+            $scope.log.info('(fancy-angular)', '(scope)', '(connection)', 'updated to', $scope.getConnection())
+            for (var index in $scope._watchedObjects) {
+                var obj = $scope._watchedObjects[index];
+                obj.updateApiClient($scope.getConnection().ajax)
+            }
+                if ($scope.getConnection().ajax) {
+                    $scope.getConnection().ajax.bind('completed*', function(event, id){
+                        $scope.$apply();
+                        $scope.$emit('applied');
+                    })
+                }
+        })
         $scope._getApiPlaceholder = function(settings){
             if (!settings.hasOwnProperty('log')) {
                 settings.log = $scope.log;
             }
+            settings.apiClient = $scope.getConnection().ajax;
             return $ApiProvider.blank(settings);
         }
         
