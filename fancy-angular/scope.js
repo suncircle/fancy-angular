@@ -8,7 +8,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             $q = $injector.get('$q');
         
         $scope.this = $scope.$id;
-        $scope.apply = function(rawContent, callback) {
+        $scope.apply = function(rawContent, callback, forceApply) {
             var content = angular.element(rawContent);
             var compiled = $compile(content);
     
@@ -17,8 +17,10 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             
             // then execute compiled
             compiled($scope);
-            $scope.$apply();
-            $scope.$emit('applied');
+            if (forceApply){
+                $scope.$apply();
+                $scope.$emit('applied');
+            };
         };
         $scope.translate = function(identifier, callback){$translate(identifier).then(callback)};
         $scope.__log_storage = widgetConfig.plugin ? $parentScope.__log_storage : [];
@@ -399,7 +401,8 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                                         });
                                 }
                             $parentScope['__'+ref_attr_obj+'Relationships'][ref_attr_name].add(obj);
-                            $parentScope.$apply();
+                            //$parentScope.$apply();
+                            //$parentScope.$emit('applied');
                         }
                     }
                 }
@@ -668,7 +671,8 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             obj.bind('post-*', function(event, apiResult){
                 $scope.log.event.apply(null, arguments)
                 if (apiResult.action != 'fixture') {
-                    $scope.apply();
+                    $scope.$apply();
+                    $scope.$emit('applied')
                 }
             })
             obj.bind('start-loading*', function(event, apiResult){

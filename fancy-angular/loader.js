@@ -269,6 +269,8 @@ define(['fancyPlugin!jquery', 'fancyPlugin!fancyFrontendCore'], function($, core
                 }
                 js(options, $widget)
             }
+            scope.$apply();
+            scope.$emit('applied');
 
         },
         
@@ -280,6 +282,8 @@ define(['fancyPlugin!jquery', 'fancyPlugin!fancyFrontendCore'], function($, core
                     if (settings.callback){
                         settings.callback('template', settings.templates[key], response);
                     }
+                    settings.scope.$apply();
+                    settings.scope.$emit('applied');
                 });
             }
             for (var key in settings.locales){
@@ -307,6 +311,7 @@ define(['fancyPlugin!jquery', 'fancyPlugin!fancyFrontendCore'], function($, core
                     settings.scope.log.event('loaded fixture', settings.fixtures[key], fixture)
                     settings.scope.addFixture(settings.fixtures[key], fixture)
                     settings.scope.$apply();
+                    settings.scope.$emit('applied');
                     if (settings.callback){
                         settings.callback('fixture', settings.fixtures[key], fixture);
                     }
