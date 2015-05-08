@@ -529,6 +529,27 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                 }
 
                 if ($scope['__' + name + 'AsPrimary']){
+                    $scope._initAttrAsPrimary(name, settings)
+                }
+                if (obj === undefined) {
+                    obj = $scope.object($scope._getAttrValueConfig(name), settings)
+                }
+                return $scope._initAttrWithObj(name, settings, obj);
+            };
+            
+            $scope._initAttrWithObj = function(name, settings, obj){
+                if (settings.force_update === false && (!obj || ($scope['_'+ name ] && !$scope['_'+ name ].isBlank() && (obj.isBlank() || (!obj.isCreated() && !$scope['_'+ name ].isCreated()))))) {
+                    $scope.log.debug('(scope)', 'skip updating', $scope['_'+ name ], 'with', obj, 'because its just a weak update')
+                    return $scope['_'+ name ]
+                }
+                if (name != 'resource') {
+                    throw Error('Not implemented initAttr for attr != resource yet')
+                }
+                return $scope.updateResource(obj);
+            };
+            
+            $scope._initAttrAsPrimary = function(name, settings){
+                
                     //$scope.__defaultWidgetView == 'detail' && $scope.resourceList && $scope.resourceList.length) {
                     $scope.log.debug('(scope)', 'display list as the primary element', ($scope['__' + name + 'AsNew'] ? 'and as new' : ''), 'of list', $scope[name + 'List'])
                     $scope['__'+ name +'Target'] = 'uuid';
@@ -539,24 +560,28 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                         $scope.log.debug('(scope)', 'as new'); // TODO: this should be done, after get(primary) hasnt returned anything.
                     }else{
                         //$scope['__'+ name +'Id'] = $scope[name +'List'][0].uuid ? $scope[name +'List'][0].uuid : $scope[name +'List'][0];
-                        obj = $scope['_resourceList'].get({target: 'link', data:'primary'})
-                        if (obj.isBlank()) { // TODO: if relationship.titalLength = 0 or primary is None
-                            $scope.log.debug('(scope)', 'as primary', obj, 'is none. doin new');
+                        obj = $scope['_' + name + 'List'].get({
+                            target: 'link', data:'primary', initialContent: $scope[name]
+                        })
+                        if ($scope['_' + name + 'List'].__initialized !== true) {
+                            $scope['_' + name + 'List'].bind('initialized', function(){
+                                $scope._initAttrAsPrimary(name, settings);
+                            })
+                            $scope.log.debug('(scope)', 'skip - list not initialized yet', $scope['_' + name + 'List']);
+                            return
+                        }else
+                        if ($scope['_' + name + 'List'].isBlank()) {
+                            $scope.log.debug('(scope)', '(TODO)', 'skip - blank.', $scope['_' + name + 'List'], obj);
+                            return
+                        }else
+                        if ($scope[name + 'List'].totalLength == 0 && obj.isBlank()){
+                            $scope.log.debug('(scope)', 'as primary', $scope[name + 'List'], 'is empty. doin new');
                             $scope['__' + name + 'AsNew'] = true;
-                            return $scope._initAttr(name, settings)
+                            return $scope._initAttrAsPrimary(name, settings)
                         }
                         $scope.log.debug('(scope)', 'as primary', obj);
                     }
-                }
-                if (obj === undefined) {
-                    obj = $scope.object($scope._getAttrValueConfig(name), settings)
-                }
-                
-                if (settings.force_update === false && (!obj || ($scope['_'+ name ] && !$scope['_'+ name ].isBlank() && (obj.isBlank() || (!obj.isCreated() && !$scope['_'+ name ].isCreated()))))) {
-                    $scope.log.debug('(scope)', 'skip updating', $scope['_'+ name ], 'with', obj, 'because its just a weak update')
-                    return $scope['_'+ name ]
-                }
-                return $scope.updateResource(obj);
+                return $scope._initAttrWithObj(name, settings, obj);
             };
             
             $scope._parseReference = function(str){
