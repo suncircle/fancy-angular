@@ -1,5 +1,16 @@
 define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular, $) {
     
+    function LogProxy() {
+        this.init.apply(this, arguments);
+    };
+    
+    $.extend(LogProxy.prototype, {
+        init: function(obj){
+            this.currently = obj;
+            this.at_creation = JSON.parse(JSON.stringify(obj))
+        }
+    });
+
     function prepareScope($injector, $scope, $parentScope, jsConfig, widgetConfig, frontendCore){
         var $ApiProvider = $injector.get('$ApiProvider'),
             $fancyAngularLocalesLoader = $injector.get('$fancyAngularLocalesLoader'),
@@ -24,15 +35,29 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
         };
         $scope.translate = function(identifier, callback){$translate(identifier).then(callback)};
         $scope.__log_storage = widgetConfig.plugin ? $parentScope.__log_storage : [];
+        var log_locally = true;  // TODO: as setting
         $scope.log = {
-            error: function(){
-                if (true) {
-                    var stack, content = Array.prototype.slice.call(arguments);
-                    for (var arg in content) {
-                        if (content[arg] instanceof Error) {
-                            content[arg] = {stack: content[arg].stack, type: content[arg].constructor.name};
+            _parse_arguments: function(args){
+                var content = Array.prototype.slice.call(args);
+                for (var arg in content) {
+                    if (content[arg] instanceof Error) {
+                        content[arg] = {stack: content[arg].stack, type: content[arg].constructor.name};
+                    }
+                    if (content[arg]) {
+                        if (content[arg].constructor === Array) {
+                            content[arg] = new LogProxy(content[arg]);
+                        }
+                        if (content[arg] instanceof Object) {
+                            //content[arg] = new LogProxy(content[arg]);
                         }
                     }
+                }
+                return content
+            },
+            error: function(){
+                if (log_locally) {
+                    var stack,
+                        content = $scope.log._parse_arguments(arguments);
                     if (!stack) {
                         stack =  new Error().stack;
                     }
@@ -43,59 +68,59 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                 console.error.apply(console, arguments)
             },
             event: function(){
-                if (true) {
+                if (log_locally) {
                     var stack = new Error().stack;
-                    $scope.__log_storage.push({type: 'event', timestamp:new Date().getTime(), content:Array.prototype.slice.call(arguments), stack:stack})
+                    $scope.__log_storage.push({type: 'event', timestamp:new Date().getTime(), content:$scope.log._parse_arguments(arguments), stack:stack})
                 }else{
                     console.log.apply(console, arguments)
                 }
             },
             debug: function(){
-                if (true) {
+                if (log_locally) {
                     var stack = new Error().stack;
-                    $scope.__log_storage.push({type: 'debug', timestamp:new Date().getTime(), content:Array.prototype.slice.call(arguments), stack:stack})
+                    $scope.__log_storage.push({type: 'debug', timestamp:new Date().getTime(), content:$scope.log._parse_arguments(arguments), stack:stack})
                 }else{
                     console.log.apply(console, arguments)
                 }
             },
             warn: function(){
-                if (true) {
+                if (log_locally) {
                     var stack = new Error().stack;
-                    $scope.__log_storage.push({type: 'warn', timestamp:new Date().getTime(), content:Array.prototype.slice.call(arguments), stack:stack})
+                    $scope.__log_storage.push({type: 'warn', timestamp:new Date().getTime(), content:$scope.log._parse_arguments(arguments), stack:stack})
                     $scope.log.failure('Warning.') // TODO: get translated default warning Message for user
                 }else{
                     console.log.apply(console, arguments)
                 }
             },
             success: function(){ // is propagated to user
-                if (true) {
+                if (log_locally) {
                     var stack = new Error().stack;
-                    $scope.__log_storage.push({type: 'success', timestamp:new Date().getTime(), content:Array.prototype.slice.call(arguments), stack:stack})
+                    $scope.__log_storage.push({type: 'success', timestamp:new Date().getTime(), content:$scope.log._parse_arguments(arguments), stack:stack})
                 }else{
                     console.log.apply(console, arguments)
                 }
             },
             failure: function(){ // is propagated to user
-                if (true) {
+                if (log_locally) {
                     var stack = new Error().stack;
-                    $scope.__log_storage.push({type: 'failure', timestamp:new Date().getTime(), content:Array.prototype.slice.call(arguments), stack:stack})
+                    $scope.__log_storage.push({type: 'failure', timestamp:new Date().getTime(), content:$scope.log._parse_arguments(arguments), stack:stack})
                 }else{
                     console.log.apply(console, arguments)
                 }
             },
             info: function(){ // is propagated to user
-                if (true) {
+                if (log_locally) {
                     //console.log('-->',arguments.callee.caller.name,arguments.callee.caller.arguments.callee.caller.name)
                     var stack = new Error().stack;
-                    $scope.__log_storage.push({type: 'info', timestamp:new Date().getTime(), content:Array.prototype.slice.call(arguments), stack:stack})
+                    $scope.__log_storage.push({type: 'info', timestamp:new Date().getTime(), content:$scope.log._parse_arguments(arguments), stack:stack})
                 }else{
                     console.log.apply(console, arguments)
                 }
             },
             warning: function(){ // is propagated to user
-                if (true) {
+                if (log_locally) {
                     var stack = new Error().stack;
-                    $scope.__log_storage.push({type: 'warning', timestamp:new Date().getTime(), content:Array.prototype.slice.call(arguments), stack:stack})
+                    $scope.__log_storage.push({type: 'warning', timestamp:new Date().getTime(), content:$scope.log._parse_arguments(arguments), stack:stack})
                 }else{
                     console.log.apply(console, arguments)
                 }
