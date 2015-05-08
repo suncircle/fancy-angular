@@ -633,6 +633,8 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                         initialContent: $scope[name],
                         target: 'uuid',
                     })
+                }else{
+                    $scope[name] = $scope['_'+name].getContent('json')
                 }
                 if (!$scope.hasOwnProperty('_'+name+'List')) {
                         $scope['_'+name+'List'] = $scope._getApiPlaceholder({
@@ -808,7 +810,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                         }
                     }else{
                         if ($parentScope[key]) {
-                            $scope[key + 'Parent'] = $parentScope[key];
+                            $scope[key + ($scope.__type != 'plugin' ? 'Parent': '')] = $parentScope[key];
                         }
                         
                         if (value.hasOwnProperty('asPrimary')) {
