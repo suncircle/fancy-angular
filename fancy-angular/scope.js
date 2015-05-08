@@ -765,6 +765,23 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
         $scope.init = function($widget){
             $scope['!private'] = {}
             $scope['!private'].$widget = $widget;
+            // TODO: more automatic for all possible attrs
+            if ($widget && $widget.options.resource) {
+                var resource  = $widget.options.resource;
+                if (resource.isBlank) { // just check if has this method = ApiObject
+                    if ($scope._resource) {
+                        $scope._resource.replace_with(resource)
+                    }else{
+                        $scope._resource = $widget.options.resource;
+                    }
+                }else{
+                    if ($scope._resource) {
+                        $scope._resource.updateContent(resource)
+                    }else{
+                        $scope.resource = resource;
+                    }
+                }
+            }
             if ($widget && $widget.endpoint) {
                 $scope.__endpoint = $widget.endpoint;
             }
