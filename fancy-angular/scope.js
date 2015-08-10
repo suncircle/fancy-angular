@@ -1,4 +1,18 @@
-define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular, $) {
+define(['fancyPlugin!angular', 'jquery'], function (angular, $) {
+    //var $ = fancyWidgetCore.$;
+
+    function proxy(element) {
+            if (Array.isArray(element)) {
+                var list = this.at_creation = [];
+                $.each(element, function(index, element){
+                    list.push(element)
+                })
+                return list
+            } else if (!element.__proto__ || element.__proto__.constructor === Object ) {
+                return JSON.parse(JSON.dumps(element))
+            }
+            return element
+    }
     
     function LogProxy() {
         this.init.apply(this, arguments);
@@ -7,17 +21,30 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
     $.extend(LogProxy.prototype, {
         init: function(obj){
             this.currently = obj;
-            this.at_creation = JSON.parse(JSON.stringify(obj))
+            this.at_creation = proxy(obj);
+               
+            
         }
     });
 
-    function prepareScope($injector, $scope, $parentScope, jsConfig, widgetConfig, frontendCore){
-        var $ApiProvider = $injector.get('$ApiProvider'),
-            $fancyAngularLocalesLoader = $injector.get('$fancyAngularLocalesLoader'),
-            $translate = $injector.get('$translate'),
-            $compile = $injector.get('$compile'),
-            $q = $injector.get('$q');
+    function _prepare($injector, $scope, $parentScope){
+        var $translate = $injector.get('$translate'),
+            $compile = $injector.get('$compile');
+
+        $scope.showPrivacyInfo = function(){
+            return ;
+        }
+        $scope.showSessionStatus = function(){
+            return $scope.__type != 'plugin';
+        }
+        $scope.showAuthStatus = function(){
+            return ($parentScope && $parentScope.__type != 'frontend' && $parentScope.auth) ? $scope.auth.getProfile() != $parentScope.auth.getProfile() : true;
+        }
+        $scope.showHostStatus = function(){
+            return ($parentScope && $parentScope.__type != 'frontend' && $parentScope.host) ? $scope.host.name != $parentScope.host.name : true;
+        }
         
+        $scope['!private'] = {};
         $scope.this = $scope.$id;
         $scope.apply = function(rawContent, callback, forceApply) {
             var content = angular.element(rawContent);
@@ -34,8 +61,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             };
         };
         $scope.translate = function(identifier, callback){$translate(identifier).then(callback)};
-        $scope.__log_storage = widgetConfig.plugin ? $parentScope.__log_storage : [];
-        var log_locally = true;  // TODO: as setting
+        var log_locally = true;  // TODO
         $scope.log = {
             _parse_arguments: function(args){
                 var content = Array.prototype.slice.call(args);
@@ -126,6 +152,29 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                 }
             }
         }
+    }
+
+    function prepareRoot($injector, $scope, widgetConfig){
+        _prepare($injector, $scope);
+        $scope.__log_storage = [];
+        $scope.init = function($frontend){
+            $scope['!private'].$frontend = $frontend;
+        }
+        $scope.__type = 'frontend';
+    }
+
+    function prepareScope($injector, $scope, $parentScope, jsConfig, widgetConfig, frontendCore){
+        var $ApiProvider = $injector.get('$ApiProvider'),
+            $fancyAngularLocalesLoader = $injector.get('$fancyAngularLocalesLoader'),
+            $q = $injector.get('$q');
+
+        _prepare($injector, $scope, $parentScope);
+        $scope.__log_storage = (widgetConfig.plugin ? $parentScope.__log_storage : null) || [];
+
+        $scope.auth = $ApiProvider.getAuth(frontendCore, $parentScope.auth);
+        $scope.host = $parentScope.host ? $parentScope.host.asProxy({log: $scope.log, auth: $scope.auth}) : undefined;
+        
+        
         $scope._accessApiEndpoint = function(){
             var apiClient = $scope.getConnection().ajax;
             var apiObj = apiClient.get.apply(apiClient, arguments);
@@ -325,7 +374,8 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                     //    provider = new_provider;
                     //}
                 }else{
-                    provider = $scope._accessApiEndpoint('object')
+                    provider = $scope._accessApiEndpoint('objects');
+                    settings.target = 'query'
                 };
             }
             if (settings.data === null) {
@@ -346,360 +396,402 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
             return fixture ? result.fromFixture(fixture) : result
         };
         
+       
+        var CoreScopePrototype = {
+            _setWidgetOption: function(key, value){
+                if (false) {
+                    $scope['!private'].widget.option(key, value)
+                }
+            }
+        },
+            WidgetScopePrototype = {
+                updateResource: function (resource) {
+                    if (resource === undefined) {
+                        $scope.log.debug('(FancyAngular)', '(Directives)', '(Scope)', 'skipping updating with', resource);
+                        return resource
+                    }
+                    $scope.log.debug('(scope)', 'trying to update with', resource);
+                    var attr_obj = 'resource',
+                        obj = resource;
+                    if (!(resource && resource.__path && resource.__path.target)) {
+                            var old = $scope['_resource'];
+                        if (old && old.__path && old.__path.target && !old.isBlank() && !old.isCreated()) {
+                            $scope.log.debug('(scope)', 'skip updating', old, 'with new', config);
+                            return old
+                        }
+                        var config = $scope._getAttrValueConfig('resource');
+                        $scope.log.debug('(scope)', 'no resource exitent, yet. offer new', config);
+                            
+                        var old_resource = resource;
+                        resource = $scope.object(config)
+                        if (!(resource && resource.__path && resource.__path.target)) {
+                            return undefined
+                        }
+                        if (old_resource && old_resource.replaceWith) {
+                            $scope.log.debug('(scope)', 'no resource exitent, yet. offer new');
+                            old_resource.replaceWith(resource);
+                        }
+                    }
+                    
+                    if (resource.__path.target == 'relationship') {
+                        if ($scope['_resourceList'] !== resource) {
+                            $scope.log.debug('(scope)', 'updating resourceList', $scope['_resourceList'], 'with', resource)
+                            var old = $scope['_resourceList'];                             
+                            $scope['_resourceList'] = resource;
+                            // TODO!!! this is just a quick fix
+                            resource.bind('replaced', function(evt, new_obj, old_obj){
+                                if ($scope['_resourceList'] == old_obj) {
+                                    $scope.log.debug('(scope)', 'replaced resourceList', old_obj, 'with', new_obj)
+                                    $scope.updateResource(new_obj)
+                                }else{
+                                    $scope.log.debug('(scope)', '(TODO)', 'ignoring replaced resourceList', old_obj, 'with', new_obj)
+                                }
+                            })
+                            old.replaceWith(resource);
+                            $scope['resourceList'] = resource.getContent()['json'];
+                            if ($scope['__' + attr_obj + 'AsPrimary']) {
+                                $scope._initAttr(attr_obj, {force_update: false});
+                            }else{
+                                $scope[attr_obj] = $parentScope[attr_obj]
+                            }
+                        }
+                    }else{
+                        if ($scope['_resource'] !== resource) {
+                            $scope.log.debug('(scope)', 'updating resource', $scope['_resource'], 'with', resource)
+                            var old = $scope['_resource'];
+                            $scope['_resource'] = resource;
+                            // TODO!!! this is just a quick fix
+                            resource.bind('replaced', function(evt, new_obj, old_obj){
+                                if ($scope['_resource'] == old_obj) {
+                                    $scope.log.debug('(scope)', 'replaced resource', old_obj, 'with', new_obj)
+                                    $scope.updateResource(new_obj)
+                                }else{
+                                    $scope.log.debug('(scope)', '(TODO)', 'ignoring replaced resource', old_obj, 'with', new_obj)
+                                }
+                            })
+                            old.replaceWith(resource);
+                            if ($scope['__'+attr_obj+'Relationships']) { // TODO: extend resource.__objects with old relationships
+                                $scope['__'+attr_obj+'Relationships'] = resource.__objects;//$scope._getApiPlaceholder({'target': 'relationship', 'data': attr_name})
+                            }
+                            
+                            if ($scope['__'+attr_obj+'Reference'] && !resource.isCreated()) {
+                                var widgetReference = $scope._parseReference($scope['__'+attr_obj+'Reference']),
+                                    ref_attr_name = widgetReference.name,
+                                    ref_attr_obj = widgetReference.obj;
+                                /*
+                                resource.bind('post-create', function(event, result){
+                                    $scope.log.debug('(FancyAngular)', '(Directives)', '(Scope)', '(create)', 'adding', obj, 'to parents', (ref_attr_obj + '.' +ref_attr_name), 'relationship')
+                                    if ($parentScope['__'+ref_attr_obj+'Relationships'][ref_attr_name] === undefined ) {
+                                        $parentScope['_'+ref_attr_obj].get({
+                                            target: 'relationship',
+                                            data: ref_attr_name,
+                                            initialContent: $parentScope[ref_attr_obj][ref_attr_name],
+                                            });
+                                    }
+                                    $parentScope['__'+ref_attr_obj+'Relationships'][ref_attr_name].add(result.getResource); // TODO: adding result.obj or obj
+                                    $parentScope.$apply();
+                                })  */
+                                $scope.log.debug('(FancyAngular)', '(Directives)', '(Scope)', '(create)', 'adding', obj, 'to parents', (ref_attr_obj + '.' +ref_attr_name), 'relationship')
+                                    if ($parentScope['__'+ref_attr_obj+'Relationships'][ref_attr_name] === undefined ) {
+                                        $parentScope['_'+ref_attr_obj].get({
+                                            target: 'relationship',
+                                            data: ref_attr_name,
+                                            initialContent: $parentScope[ref_attr_obj][ref_attr_name],
+                                            });
+                                    }
+                                $parentScope['__'+ref_attr_obj+'Relationships'][ref_attr_name].add(obj);
+                                //$parentScope.$apply();
+                                //$parentScope.$emit('applied');
+                            }
+                        }
+                    }
+                    
+                    return resource
+                },
+                
+                _getAttrValueConfig: function (name){
+                    var data,
+                        target = $scope['__'+ name +'Target'];
+                    if (target == 'relationship' || target == 'link'){
+                        data = $scope['__'+ name +'Reference'].split('.').slice(-1)[0]
+                    }else{
+                        target = target  || 'uuid';
+                        data = $scope['__'+ name +'Id'] || '';
+                        if (target == 'uuid' && $scope['__'+ name +'Options'] && $scope['__'+ name +'Options']['meta']) {
+                            data += '(' + $scope['__'+ name +'Options']['meta'] + ')';
+                        }
+                    }
+                    var object_settings = {
+                        target:target,
+                        data:data,
+                        config: {
+                            obj_json: $scope[name],
+                            objList_json: $scope[name +'List'],
+                            parentObj: $parentScope['_' + name]
+                        }
+                    };
+                    $scope.log.debug('(scope)', 'initializing ', name, 'with', object_settings)
+                    return object_settings
+                },
+                
+                _attrs: [],
+                _initAttr: function (name, settings) {
+                    var obj = undefined;
+                    if ($scope['__'+name+'Reference']) {
+                        var widgetReference = $scope._parseReference($scope['__'+name+'Reference']),
+                            attr_name = widgetReference.name,
+                            attr_obj = widgetReference.obj;
+    
+                        retry = function (){
+                            var load_settings = {target: $scope['__'+ name +'Target'], data: attr_name},
+                                obj = $parentScope['_' + attr_obj].get(load_settings).discover({});
+                            $scope.log.debug('(scope)', 'retry init attr', {
+                            name: name,
+                            settings: settings
+                            }, 'because parent is initialized now', $parentScope['_' + attr_obj], 'loading attr', load_settings, obj);
+                            //$scope._initAttr(name, settings)
+                            
+                        }
+    
+                        if (!$parentScope['_' + attr_obj].__initialized) {
+                            $scope.log.debug('(scope)', 'skip init attr', {
+                            name: name,
+                            settings: settings
+                            }, 'because parent is not initialized yet', $parentScope['_' + attr_obj]);
+                            //// TODO: find better way
+                            //console.log($parentScope['_' + attr_obj])
+                            //if ($parentScope['_' + attr_obj].bind) {
+                                $parentScope['_' + attr_obj].bind('initialized', retry)
+                            //}else{
+                                //var unwatch = $parentScope.$watch(attr_obj, function(){
+                                //    unwatch()
+                                //    retry()
+                                //})
+                            //}
+                            
+                            return  $scope['_'+ name ]
+                        }else if (($scope['__'+ name +'Target'] == 'relationship' && $scope['_'+ name +'List'].isBlank())
+                                || ($scope['__'+ name +'Target'] != 'relationship' && $scope['_'+ name].isBlank())) {
+                            obj = $parentScope['_' + attr_obj].get({target: $scope['__'+ name +'Target'], data: attr_name});
+                            return obj.discover({});
+                        }
+                    }
+                    if (name == '!all') {
+                        var done = null;
+                        if ($scope._attrs.length) {
+                            $scope.log.debug('(scope)', 'refreshing scope attrs');
+                        }else{
+                            $scope.log.debug('(scope)', 'not refreshing scope attrs, none there');
+                        }
+                        
+                        for (var key in $scope._attrs){
+                            try {
+                                $scope._initAttr($scope._attrs[key], settings)
+                            } catch(e) {
+                                $scope.log.error('(scope)', 'couldnt init attr', $scope._attrs[key], e)
+                                done = false;
+                            }
+                            
+                        }
+                        return done === null ? true : done;
+                    };
+                    if (settings === undefined) {
+                        settings = {};
+                    }
+                    
+                    $scope.log.debug('(scope)', 'init scope attr "' + name + '"');
+                    if ($scope._attrs.indexOf(name) == -1) {
+                        $scope._attrs.push(name);
+                    }
+    
+                    if ($scope['__' + name + 'AsPrimary']){
+                        $scope._initAttrAsPrimary(name, settings)
+                    }
+                    if (obj === undefined && name == 'resource') {
+                        obj = $scope.object($scope._getAttrValueConfig(name), settings)
+                    }
+                    return $scope._initAttrWithObj(name, settings, obj);
+                },
+                
+                _initAttrWithObj: function(name, settings, obj){
+                    if (settings.force_update === false && (!obj || ($scope['_'+ name ] && !$scope['_'+ name ].isBlank() && (obj.isBlank() || (!obj.isCreated() && !$scope['_'+ name ].isCreated()))))) {
+                        $scope.log.debug('(scope)', 'skip updating', $scope['_'+ name ], 'with', obj, 'because its just a weak update')
+                        return $scope['_'+ name ]
+                    }
+                    if (name != 'resource') {
+                        return obj
+                    }
+                    return $scope.updateResource(obj);
+                },
+                
+                _initAttrAsPrimary: function(name, settings){
+                    
+                        //$scope.__defaultWidgetView == 'detail' && $scope.resourceList && $scope.resourceList.length) {
+                        $scope.log.debug('(scope)', 'display list as the primary element', ($scope['__' + name + 'AsNew'] ? 'and as new' : ''), 'of list', $scope[name + 'List'])
+                        $scope['__'+ name +'Target'] = 'uuid';
+                        $scope['__'+ name +'Id'] = $scope['__'+ name +'Id'] || undefined; // otherwise it might be null - which indecates AsNew
+                        if ($scope['__' + name + 'AsNew']){// || (!$scope[name + 'List'] || $scope[name +'List'].totalLength == 0)) {
+                            $scope['__'+ name +'Id'] = null;
+                            //$scope['__' + name + 'AsNew'] = true;
+                            $scope.log.debug('(scope)', 'as new'); // TODO: this should be done, after get(primary) hasnt returned anything.
+                        }else{
+                            //$scope['__'+ name +'Id'] = $scope[name +'List'][0].uuid ? $scope[name +'List'][0].uuid : $scope[name +'List'][0];
+                            obj = $scope['_' + name + 'List'].get({
+                                target: 'link', data:'primary', initialContent: $scope[name]
+                            })
+                            if ($scope['_' + name + 'List'].__initialized !== true) {
+                                $scope['_' + name + 'List'].bind('initialized', function(){
+                                    $scope._initAttrAsPrimary(name, settings);
+                                })
+                                $scope.log.debug('(scope)', 'skip - list not initialized yet', $scope['_' + name + 'List']);
+                                return
+                            }else
+                            if ($scope['_' + name + 'List'].isBlank()) {
+                                $scope.log.debug('(scope)', '(TODO)', 'skip - blank.', $scope['_' + name + 'List'], obj);
+                                return
+                            }else
+                            if ($scope[name + 'List'].totalLength == 0 && obj.isBlank()){
+                                $scope.log.debug('(scope)', 'as primary', $scope[name + 'List'], 'is empty. doin new');
+                                $scope['__' + name + 'AsNew'] = true;
+                                return $scope._initAttrAsPrimary(name, settings)
+                            }
+                            $scope.log.debug('(scope)', 'as primary', obj);
+                        }
+                    return $scope._initAttrWithObj(name, settings, obj);
+                },
+                
+                _parseReference: function(str){
+                    var widgetReferenceParts = str.split('.');
+                    if (widgetReferenceParts.length == 2) {
+                        attr_obj = widgetReferenceParts[0];
+                        attr_name = widgetReferenceParts[1];
+                    }else if (widgetReferenceParts.length == 1){
+                        if (!$parentScope[name]) {
+                            $parentScope[name] = {}
+                        }
+                        attr_obj = name
+                        attr_name = widgetReferenceParts[0];
+                    }else{
+                        var error = new Error()
+                        $scope.log.error('(scope)', str, 'is not a valid reference to parent', error)
+                        throw error
+                    }
+                    return {
+                        name: attr_name,
+                        obj: attr_obj
+                    }
+                },
+            
+                _prepareAttr: function(name, initialValue, attrReference, asPrimary, options){
+                    if (!$scope[name + 'Save']){
+                        $scope[name + 'Save'] = function(){
+                            if ($scope['_' + name].needsSave())$scope['_' + name].save()
+                        }
+                    };
+                    
+                    if (options) {
+                        $scope['__' + name + 'Options'] = {};
+                        $.each(options, function(elem, value){
+                            $scope['__' + name + 'Options'][elem] = value;
+                        })
+                    }
+                    
+                    if (!$scope['__' + name + 'Id'] && initialValue){
+                        $scope.log.debug('setting default for "' + name +'" to', initialValue)
+                        $scope['__' + name + 'Id'] = initialValue
+                    }
+                    if ($scope['__' + name + 'AsPrimary'] === undefined && asPrimary !== undefined) {
+                        $scope['__' + name + 'AsPrimary'] = asPrimary
+                    }
+                    
+                    $scope._relationships = {};
+                    if (!$scope.hasOwnProperty(name)) {
+                            $scope[name] = {}
+                    }
+                    if (!$scope.hasOwnProperty(name+'List')) {
+                            $scope[name+'List'] = []
+                    }
+                    if (!$scope.hasOwnProperty('_'+name)) {
+                            $scope['_'+name] = $scope._getApiPlaceholder({
+                            initialContent: $scope[name],
+                            target: 'uuid',
+                        })
+                    }else{
+                        $scope[name] = $scope['_'+name].getContent('json')
+                    }
+                    if (!$scope.hasOwnProperty('_'+name+'List')) {
+                            $scope['_'+name+'List'] = $scope._getApiPlaceholder({
+                            initialContent: $scope[name+'List'],
+                            target: 'relationship',
+                        })
+                    }
+                    
+                    if (!$scope.hasOwnProperty('__'+name+'Relationships')) {
+                            $scope['__'+name+'Relationships'] = {}
+                    }
+                    if (!$scope.hasOwnProperty('__'+name+'Reference') && attrReference) {
+                            $scope['__'+name+'Reference'] = attrReference;
+                    }
+                    $scope['__'+name+'Target'] = $scope['__'+name+'Reference'] ? 'relationship' : 'uuid'; // TODO: instead of relationship could be link
+                    
+                    if ($scope['__'+name+'Reference']) {
+                            
+                        var widgetReference = $scope._parseReference($scope['__'+name+'Reference']),
+                            attr_name = widgetReference.name,
+                            attr_obj = widgetReference.obj;
+        
+                        $scope.log.debug('(scope)', 'watching', {
+                            name: name,
+                            attr_name: attr_name,
+                            attr_obj:attr_obj,
+                            reference: $scope['__'+name+'Reference']}, 'on parent')
+                        
+                        // if the source is simply a list within the parents content, copy it
+                        if ($scope[name +'List']) {
+                            $scope[name +'List'] = $parentScope[attr_obj][attr_name];
+                        }
+                        $parentScope.$watch( attr_obj +'.' + attr_name, function() {
+                            if ($parentScope[attr_obj][attr_name] === undefined) {
+                                $scope.log.debug('(scope)', 'skipped '+attr_obj+'.'+attr_name+' changes, because its undefied.', $parentScope[attr_obj]);
+                            }
+                            $scope.log.debug('(scope)', 'parents '+attr_obj+'.'+attr_name+' has changed', $parentScope[attr_obj], $parentScope[attr_obj][attr_name]);
+                            $scope[name +'List'] = $parentScope[attr_obj][attr_name];
+                            $scope._initAttr('!all', {force_update: false});
+                        });
+    
+                        // and if its a relationship, link that
+                        $parentScope.$watch('__'+attr_obj+'Relationships.' + attr_name, function() {
+                            $scope.log.debug('(scope)', 'parents __'+attr_obj+'Relationships.'+attr_name+' has changed', $parentScope['__'+attr_obj+'Relationships'], $parentScope['__'+attr_obj+'Relationships'][attr_name]);
+                            $scope.updateResource($parentScope['__'+attr_obj+'Relationships'][attr_name]);
+                        });
+                    }
+                }
+        },
+            PluginScopePrototype = {
+                _prepareAttr: function(name, initialValue, attrReference, asPrimary){
+                    if ($scope.__widgetReference == name) {
+                        $scope['_'+ name] = $parentScope['_' + name]
+                        $scope['_'+ name +'List'] = $parentScope['_' + name + 'List']
+                        $scope[name] = $parentScope[name]
+                        $scope[name +'List'] = $parentScope[name + 'List']
+                        $scope.log('(scope)', '('+$scope.__type+')', 'prepared', name)
+                    }else{
+                        $scope.log.error('(scope)', '('+$scope.__type+')', 'cannot prepare', name)
+                    }
+                },
+                updateResource: $scope._initAttr = $scope.prepareResource = function() {
+                    $scope.log.error('(scope)', '('+$scope.__type+')', 'not available for plugins');
+                }
+        };
+
+        $.extend($scope, CoreScopePrototype);
         if ($scope.__type == 'widget') {
             $scope.log.debug('(scope)', '('+$scope.__type+')', 'init _resource scope', $scope)
-        
-            $scope.updateResource = function (resource) {
-                if (resource === undefined) {
-                    $scope.log.debug('(FancyAngular)', '(Directives)', '(Scope)', 'skipping updating with', resource);
-                    return resource
-                }
-                $scope.log.debug('(scope)', 'trying to update with', resource);
-                var attr_obj = 'resource',
-                    obj = resource;
-                if (!(resource && resource.__path && resource.__path.target)) {
-                        var old = $scope['_resource'];
-                    if (old && old.__path && old.__path.target && !old.isBlank() && !old.isCreated()) {
-                        $scope.log.debug('(scope)', 'skip updating', old, 'with new', config);
-                        return old
-                    }
-                    var config = $scope._getAttrValueConfig('resource');
-                    $scope.log.debug('(scope)', 'no resource exitent, yet. offer new', config);
-                        
-                    var old_resource = resource;
-                    resource = $scope.object(config)
-                    if (!(resource && resource.__path && resource.__path.target)) {
-                        return undefined
-                    }
-                    if (old_resource && old_resource.replaceWith) {
-                        $scope.log.debug('(scope)', 'no resource exitent, yet. offer new');
-                        old_resource.replaceWith(resource);
-                    }
-                }
-                
-                if (resource.__path.target == 'relationship') {
-                    if ($scope['_resourceList'] !== resource) {
-                        $scope.log.debug('(scope)', 'updating resourceList', $scope['_resourceList'], 'with', resource)
-                        var old = $scope['_resourceList'];                             
-                        $scope['_resourceList'] = resource;
-                        old.replaceWith(resource);
-                        $scope['resourceList'] = resource.getContent()['json'];
-                        if ($scope['__' + attr_obj + 'AsPrimary']) {
-                            $scope._initAttr(attr_obj, {force_update: false});
-                        }else{
-                            $scope[attr_obj] = $parentScope[attr_obj]
-                        }
-                    }
-                }else{
-                    if ($scope['_resource'] !== resource) {
-                        $scope.log.debug('(scope)', 'updating resource', $scope['_resource'], 'with', resource)
-                        var old = $scope['_resource'];
-                        $scope['_resource'] = resource;
-                        old.replaceWith(resource);
-                        if ($scope['__'+attr_obj+'Relationships']) { // TODO: extend resource.__objects with old relationships
-                            $scope['__'+attr_obj+'Relationships'] = resource.__objects;//$scope._getApiPlaceholder({'target': 'relationship', 'data': attr_name})
-                        }
-                        
-                        if ($scope['__'+attr_obj+'Reference'] && !resource.isCreated()) {
-                            var widgetReference = $scope._parseReference($scope['__'+attr_obj+'Reference']),
-                                ref_attr_name = widgetReference.name,
-                                ref_attr_obj = widgetReference.obj;
-                            /*
-                            resource.bind('post-create', function(event, result){
-                                $scope.log.debug('(FancyAngular)', '(Directives)', '(Scope)', '(create)', 'adding', obj, 'to parents', (ref_attr_obj + '.' +ref_attr_name), 'relationship')
-                                if ($parentScope['__'+ref_attr_obj+'Relationships'][ref_attr_name] === undefined ) {
-                                    $parentScope['_'+ref_attr_obj].get({
-                                        target: 'relationship',
-                                        data: ref_attr_name,
-                                        initialContent: $parentScope[ref_attr_obj][ref_attr_name],
-                                        });
-                                }
-                                $parentScope['__'+ref_attr_obj+'Relationships'][ref_attr_name].add(result.obj); // TODO: adding result.obj or obj
-                                $parentScope.$apply();
-                            })  */
-                            $scope.log.debug('(FancyAngular)', '(Directives)', '(Scope)', '(create)', 'adding', obj, 'to parents', (ref_attr_obj + '.' +ref_attr_name), 'relationship')
-                                if ($parentScope['__'+ref_attr_obj+'Relationships'][ref_attr_name] === undefined ) {
-                                    $parentScope['_'+ref_attr_obj].get({
-                                        target: 'relationship',
-                                        data: ref_attr_name,
-                                        initialContent: $parentScope[ref_attr_obj][ref_attr_name],
-                                        });
-                                }
-                            $parentScope['__'+ref_attr_obj+'Relationships'][ref_attr_name].add(obj);
-                            //$parentScope.$apply();
-                            //$parentScope.$emit('applied');
-                        }
-                    }
-                }
-                
-                return resource
-            }
-            
-            $scope._getAttrValueConfig = function (name){
-                var data,
-                    target = $scope['__'+ name +'Target'];
-                if (target == 'relationship' || target == 'link'){
-                    data = $scope['__'+ name +'Reference'].split('.').slice(-1)[0]
-                }else{
-                    target = target  || 'uuid';
-                    data = $scope['__'+ name +'Id'];
-                }
-                var object_settings = {
-                    target:target,
-                    data:data,
-                    config: {
-                        obj_json: $scope[name],
-                        objList_json: $scope[name +'List'],
-                        parentObj: $parentScope['_' + name]
-                    }
-                };
-                $scope.log.debug('(scope)', 'initializing ', name, 'with', object_settings)
-                return object_settings
-            };
-            
-            
-            $scope._attrs = []
-            $scope._initAttr = function (name, settings) {
-                var obj = undefined;
-                if ($scope['__'+name+'Reference']) {
-                    var widgetReference = $scope._parseReference($scope['__'+name+'Reference']),
-                        attr_name = widgetReference.name,
-                        attr_obj = widgetReference.obj;
-
-                    retry = function (){
-                        var load_settings = {target: $scope['__'+ name +'Target'], data: attr_name},
-                            obj = $parentScope['_' + attr_obj].get(load_settings).discover({});
-                        $scope.log.debug('(scope)', 'retry init attr', {
-                        name: name,
-                        settings: settings
-                        }, 'because parent is initialized now', $parentScope['_' + attr_obj], 'loading attr', load_settings, obj);
-                        //$scope._initAttr(name, settings)
-                        
-                    }
-
-                    if (!$parentScope['_' + attr_obj].__initialized) {
-                        $scope.log.debug('(scope)', 'skip init attr', {
-                        name: name,
-                        settings: settings
-                        }, 'because parent is not initialized yet', $parentScope['_' + attr_obj]);
-                        //// TODO: find better way
-                        //console.log($parentScope['_' + attr_obj])
-                        //if ($parentScope['_' + attr_obj].bind) {
-                            $parentScope['_' + attr_obj].bind('initialized', retry)
-                        //}else{
-                            //var unwatch = $parentScope.$watch(attr_obj, function(){
-                            //    unwatch()
-                            //    retry()
-                            //})
-                        //}
-                        
-                        return  $scope['_'+ name ]
-                    }else if (($scope['__'+ name +'Target'] == 'relationship' && $scope['_'+ name +'List'].isBlank())
-                            || ($scope['__'+ name +'Target'] != 'relationship' && $scope['_'+ name].isBlank())) {
-                        obj = $parentScope['_' + attr_obj].get({target: $scope['__'+ name +'Target'], data: attr_name});
-                        return obj.discover({});
-                    }
-                }
-                if (name == '!all') {
-                    var done = null;
-                    if ($scope._attrs.length) {
-                        $scope.log.debug('(scope)', 'refreshing scope attrs');
-                    }else{
-                        $scope.log.debug('(scope)', 'not refreshing scope attrs, none there');
-                    }
-                    
-                    for (var key in $scope._attrs){
-                        try {
-                            $scope._initAttr($scope._attrs[key], settings)
-                        } catch(e) {
-                            $scope.log.error('(scope)', 'couldnt init attr', $scope._attrs[key], e)
-                            done = false;
-                        }
-                        
-                    }
-                    return done === null ? true : done;
-                };
-                if (settings === undefined) {
-                    settings = {};
-                }
-                
-                $scope.log.debug('(scope)', 'init scope attr "' + name + '"');
-                if ($scope._attrs.indexOf(name) == -1) {
-                    $scope._attrs.push(name);
-                }
-
-                if ($scope['__' + name + 'AsPrimary']){
-                    $scope._initAttrAsPrimary(name, settings)
-                }
-                if (obj === undefined) {
-                    obj = $scope.object($scope._getAttrValueConfig(name), settings)
-                }
-                return $scope._initAttrWithObj(name, settings, obj);
-            };
-            
-            $scope._initAttrWithObj = function(name, settings, obj){
-                if (settings.force_update === false && (!obj || ($scope['_'+ name ] && !$scope['_'+ name ].isBlank() && (obj.isBlank() || (!obj.isCreated() && !$scope['_'+ name ].isCreated()))))) {
-                    $scope.log.debug('(scope)', 'skip updating', $scope['_'+ name ], 'with', obj, 'because its just a weak update')
-                    return $scope['_'+ name ]
-                }
-                if (name != 'resource') {
-                    throw Error('Not implemented initAttr for attr != resource yet')
-                }
-                return $scope.updateResource(obj);
-            };
-            
-            $scope._initAttrAsPrimary = function(name, settings){
-                
-                    //$scope.__defaultWidgetView == 'detail' && $scope.resourceList && $scope.resourceList.length) {
-                    $scope.log.debug('(scope)', 'display list as the primary element', ($scope['__' + name + 'AsNew'] ? 'and as new' : ''), 'of list', $scope[name + 'List'])
-                    $scope['__'+ name +'Target'] = 'uuid';
-                    $scope['__'+ name +'Id'] = $scope['__'+ name +'Id'] || undefined; // otherwise it might be null - which indecates AsNew
-                    if ($scope['__' + name + 'AsNew']){// || (!$scope[name + 'List'] || $scope[name +'List'].totalLength == 0)) {
-                        $scope['__'+ name +'Id'] = null;
-                        //$scope['__' + name + 'AsNew'] = true;
-                        $scope.log.debug('(scope)', 'as new'); // TODO: this should be done, after get(primary) hasnt returned anything.
-                    }else{
-                        //$scope['__'+ name +'Id'] = $scope[name +'List'][0].uuid ? $scope[name +'List'][0].uuid : $scope[name +'List'][0];
-                        obj = $scope['_' + name + 'List'].get({
-                            target: 'link', data:'primary', initialContent: $scope[name]
-                        })
-                        if ($scope['_' + name + 'List'].__initialized !== true) {
-                            $scope['_' + name + 'List'].bind('initialized', function(){
-                                $scope._initAttrAsPrimary(name, settings);
-                            })
-                            $scope.log.debug('(scope)', 'skip - list not initialized yet', $scope['_' + name + 'List']);
-                            return
-                        }else
-                        if ($scope['_' + name + 'List'].isBlank()) {
-                            $scope.log.debug('(scope)', '(TODO)', 'skip - blank.', $scope['_' + name + 'List'], obj);
-                            return
-                        }else
-                        if ($scope[name + 'List'].totalLength == 0 && obj.isBlank()){
-                            $scope.log.debug('(scope)', 'as primary', $scope[name + 'List'], 'is empty. doin new');
-                            $scope['__' + name + 'AsNew'] = true;
-                            return $scope._initAttrAsPrimary(name, settings)
-                        }
-                        $scope.log.debug('(scope)', 'as primary', obj);
-                    }
-                return $scope._initAttrWithObj(name, settings, obj);
-            };
-            
-            $scope._parseReference = function(str){
-                var widgetReferenceParts = str.split('.');
-                if (widgetReferenceParts.length == 2) {
-                    attr_obj = widgetReferenceParts[0];
-                    attr_name = widgetReferenceParts[1];
-                }else if (widgetReferenceParts.length == 1){
-                    if (!$parentScope[name]) {
-                        $parentScope[name] = {}
-                    }
-                    attr_obj = name
-                    attr_name = widgetReferenceParts[0];
-                }else{
-                    var error = new Error()
-                    $scope.log.error('(scope)', str, 'is not a valid reference to parent', error)
-                    throw error
-                }
-                return {
-                    name: attr_name,
-                    obj: attr_obj
-                }
-            };
-        
-            $scope._prepareAttr = function(name, initialValue, attrReference, asPrimary){
-                    
-                if (!$scope[name + 'Save']){
-                    $scope[name + 'Save'] = function(){
-                        if ($scope['_' + name].needsSave())$scope['_' + name].save()
-                    }
-                };
-                if (!$scope['__' + name + 'Id'] && initialValue){
-                    $scope.log.debug('setting default for "' + name +'" to', initialValue)
-                    $scope['__' + name + 'Id'] = initialValue
-                }
-                if ($scope['__' + name + 'AsPrimary'] === undefined && asPrimary !== undefined) {
-                    $scope['__' + name + 'AsPrimary'] = asPrimary
-                }
-                
-                $scope._relationships = {};
-                if (!$scope.hasOwnProperty(name)) {
-                        $scope[name] = {}
-                }
-                if (!$scope.hasOwnProperty(name+'List')) {
-                        $scope[name+'List'] = []
-                }
-                if (!$scope.hasOwnProperty('_'+name)) {
-                        $scope['_'+name] = $scope._getApiPlaceholder({
-                        initialContent: $scope[name],
-                        target: 'uuid',
-                    })
-                }else{
-                    $scope[name] = $scope['_'+name].getContent('json')
-                }
-                if (!$scope.hasOwnProperty('_'+name+'List')) {
-                        $scope['_'+name+'List'] = $scope._getApiPlaceholder({
-                        initialContent: $scope[name+'List'],
-                        target: 'relationship',
-                    })
-                }
-                
-                if (!$scope.hasOwnProperty('__'+name+'Relationships')) {
-                        $scope['__'+name+'Relationships'] = {}
-                }
-                if (!$scope.hasOwnProperty('__'+name+'Reference') && attrReference) {
-                        $scope['__'+name+'Reference'] = attrReference;
-                }
-                $scope['__'+name+'Target'] = $scope['__'+name+'Reference'] ? 'relationship' : 'uuid'; // TODO: instead of relationship could be link
-                
-                if ($scope['__'+name+'Reference']) {
-                        
-                    var widgetReference = $scope._parseReference($scope['__'+name+'Reference']),
-                        attr_name = widgetReference.name,
-                        attr_obj = widgetReference.obj;
-    
-                    $scope.log.debug('(scope)', 'watching', {
-                        name: name,
-                        attr_name: attr_name,
-                        attr_obj:attr_obj,
-                        reference: $scope['__'+name+'Reference']}, 'on parent')
-                    
-                    // if the source is simply a list within the parents content, copy it
-                    if ($scope[name +'List']) {
-                        $scope[name +'List'] = $parentScope[attr_obj][attr_name];
-                    }
-                    $parentScope.$watch( attr_obj +'.' + attr_name, function() {
-                        if ($parentScope[attr_obj][attr_name] === undefined) {
-                            $scope.log.debug('(scope)', 'skipped '+attr_obj+'.'+attr_name+' changes, because its undefied.', $parentScope[attr_obj]);
-                        }
-                        $scope.log.debug('(scope)', 'parents '+attr_obj+'.'+attr_name+' has changed', $parentScope[attr_obj], $parentScope[attr_obj][attr_name]);
-                        $scope[name +'List'] = $parentScope[attr_obj][attr_name];
-                        $scope._initAttr('!all', {force_update: false});
-                    });
-
-                    // and if its a relationship, link that
-                    $parentScope.$watch('__'+attr_obj+'Relationships.' + attr_name, function() {
-                        $scope.log.debug('(scope)', 'parents __'+attr_obj+'Relationships.'+attr_name+' has changed', $parentScope['__'+attr_obj+'Relationships'], $parentScope['__'+attr_obj+'Relationships'][attr_name]);
-                        $scope.updateResource($parentScope['__'+attr_obj+'Relationships'][attr_name]);
-                    });
-                }
-            };
-            
+            $.extend($scope, WidgetScopePrototype);
         }else{
+            $scope['!private']['$owner'] = $parentScope['!private'] ? $parentScope['!private'].$widget : null;
             $scope.log.debug('(scope)', '('+$scope.__type+')', 'init plugin scope', $scope);
-            $scope._prepareAttr = function(name, initialValue, attrReference, asPrimary){
-                if ($scope.__widgetReference == name) {
-                    $scope['_'+ name] = $parentScope['_' + name]
-                    $scope['_'+ name +'List'] = $parentScope['_' + name + 'List']
-                    $scope[name] = $parentScope[name]
-                    $scope[name +'List'] = $parentScope[name + 'List']
-                    $scope.log('(scope)', '('+$scope.__type+')', 'prepared', name)
-                }else{
-                    $scope.log.error('(scope)', '('+$scope.__type+')', 'cannot prepare', name)
-                }
-            }
-            $scope.updateResource = $scope._initAttr = $scope.prepareResource = function() {
-                $scope.log.error('(scope)', '('+$scope.__type+')', 'not available for plugins');
-            }
+            $.extend($scope, PluginScopePrototype);
         }
     
         for (var key in jsConfig) {
@@ -765,8 +857,18 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
         })
         
         $scope.init = function($widget){
-            $scope['!private'] = {}
             $scope['!private'].$widget = $widget;
+            if ($scope.host){
+                $scope.host.registerInteractor($widget)
+            };
+            if ($widget.options.host === undefined) {
+                $widget.options.host = $scope.host;
+            } // else: init is done from widget but here still usefull: TODO
+            if ($widget.options.auth === undefined) {
+                $widget.options.auth = $scope.auth;
+            } // else: init is done from widget but here still usefull: TODO
+            
+            
             // TODO: more automatic for all possible attrs
             if ($widget && $widget.options.resource) {
                 var resource  = $widget.options.resource;
@@ -795,9 +897,6 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                     console.log('scope', $scope)
                 }
             })
-            if ($widget.object) {
-                $scope.__as = $widget.object; // TODO: use for ApiResources
-            }
             if ($scope.__state && $scope.__state['.']) {
                 for (var key in $scope.__state['.']) {
                     var value = $scope.__state['.'][key];
@@ -809,8 +908,15 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                             $scope.__defaultWidgetView = value;
                         }
                     }else{
-                        if ($parentScope[key]) {
-                            $scope[key + ($scope.__type != 'plugin' ? 'Parent': '')] = $parentScope[key];
+                        if ($parentScope['_' + key]) {
+                            $scope['_' + key + ($scope.__type != 'plugin' ? 'Parent': '')] = $parentScope['_' + key];
+                            $parentScope.$watch('_' + key, function(new_value, old_value){
+                                if (new_value === old_value) {
+                                    return
+                                }
+                                $scope.log.event('(fancy-angular)', '(scope)', 'parents "', key, '" has changed. updating', old_value, 'with', new_value)
+                                $scope['_' + key + ($scope.__type != 'plugin' ? 'Parent': '')] = new_value;
+                            })
                         }
                         
                         if (value.hasOwnProperty('asPrimary')) {
@@ -823,10 +929,10 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
                             $scope['__'+ key + 'IdList'] = value['uuid_list'];
                         }
                         if (value.hasOwnProperty('reference') && value['reference']) {
-                            $scope['__'+ key + 'Reference'] = value['reference'];
+                            $scope['__' + key + 'Reference'] = value['reference'];
                         }
                         if (value.hasOwnProperty('asNew') && value['asNew']) {
-                            $scope['__'+ key + 'AsNew'] = True;
+                            $scope['__'+ key + 'AsNew'] = true;
                         }
                         if (value.hasOwnProperty('filter') && value['filter']) {
                             $scope['__'+ key + 'Filter'] = value['filter'];
@@ -839,6 +945,7 @@ define(['fancyPlugin!angular', 'fancyPlugin!fancyWidgetCore'], function (angular
     } // ', ['$scope', '$translate', '$translatePartialLoader', function
     
     return {
-        prepareScope: prepareScope
+        prepareScope: prepareScope,
+        prepareRoot: prepareRoot,
     }
 });

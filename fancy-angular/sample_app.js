@@ -14,7 +14,6 @@ define([
         'use strict';
 
         // Declare app level module which depends on filters, and services
-console.log(3)
         return angular.module('fancy_angular', [
             'ngRoute',
             'ngAnimate',

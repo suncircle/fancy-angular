@@ -1,4 +1,4 @@
-define(['fancyPlugin!angular'], function (angular) {
+define(['fancyPlugin!angular','fancyPlugin!introspective-api-resources'], function (angular, apiResources) {
 	'use strict';
 
   /* Services */
@@ -18,10 +18,14 @@ define(['fancyPlugin!angular'], function (angular) {
         var stage = this.stage;
         return {
             getDefaultConnection: function(){
-                return frontendCore.endpoint
+                return frontendCore.get_host()
+            },
+            getConnection: function(identifier){
+                return frontendCore.get_host(identifier)
             },
             get: function(x, y , z){
-                return frontendCore.endpoint.ajax.access.apply(frontendCore.endpoint.ajax, arguments)
+                var ajax = getDefaultConnection().ajax
+                return ajax.access.apply(ajax, arguments)
             },
             _get: function(settings) {
                 var type = settings.target,
@@ -55,11 +59,24 @@ define(['fancyPlugin!angular'], function (angular) {
                     });
                     return deferred.promise
                 }else{// frontendCore.endpoint
-                    return frontendCore.endpoint.ajax.access('object').get(settings)
+                    if (!settings.apiClient) {
+                        //settings.apiClient = this.getDefaultConnection().ajax;
+                    }
+                    
+                    return this.getDefaultConnection().ajax.access('object').get(settings); //new apiResources.Object(settings)
                 }
             },
             blank: function(settings){
-                return frontendCore.endpoint.ajax.blank(settings)
+                if (!settings.apiClient) {
+                    settings.apiClient = this.getDefaultConnection().ajax;
+                }
+                return this.getDefaultConnection().ajax.blank(settings); //new apiResources.Placeholder(settings)
+            },
+            getAuth: function(frontendCore, parentAuth){
+                if (parentAuth) {
+                    return parentAuth.asProxy()
+                }
+                return frontendCore.getAuth().asProxy()
             }
         }
     };

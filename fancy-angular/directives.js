@@ -1,13 +1,16 @@
 define([
-        'fancyPlugin!appConfig',
         'fancyPlugin!angular',
         'fancyPlugin!services',
         'fancyPlugin!fancyWidgetCore',
-        'fancyPlugin!fancyFrontendConfig',
+        //'fancyPlugin!fancyFrontendConfig',
         'fancyPlugin!fancyScopeCore',
+        'fancyPlugin!appConfig',
         'fancyPlugin!angularTranslateService'
-    ], function(widgetCore, angular, services, $, frontendConfig, scopeCore) {
+    ], function(angular, services, fancyWidgetCore, /*frontendConfig,*/ scopeCore) {
 //	'use strict';
+    var $ = fancyWidgetCore.$,
+        frontendConfig = fancyWidgetCore.getFrontendConfig(),
+        widgetConfig = fancyWidgetCore.getWidgetConfig();
 
   /* Directives */
 
@@ -22,7 +25,7 @@ function parseState(widgetIdentifier) {
         state_string = widgetIdentifier,
         widget_source,
         currentElement,
-        state = {'resource': {}},
+        state = {'source': {}},
         root_state = {'.': state},
         seperators = [  '{',  // followed by JSON state
                       // or as resource specific shortcuts
@@ -105,10 +108,8 @@ function parseState(widgetIdentifier) {
     }else if (nextElement){
 
         if (nextElement == '<') {
-            if (currentElement.indexOf('.') != -1) {
-                state.resource.reference = currentElement;
-            }
-            state._name = currentElement;
+            state['source'].reference = currentElement;
+            //state._name = currentElement;  // TODO: this usage is overloaded currently!? what does this line do.
 
             next();
         }
@@ -119,17 +120,21 @@ function parseState(widgetIdentifier) {
                 next();
                 if (nextElement == '!') {
                     if (currentElement) {
-                        state['resource'].filter = currentElement;
+                        state['source'].filter = currentElement;
+                    }else{
+                        state['source'].asNew = true;
                     }
-                    state['resource'].asPrimary = true;
+                    if (currentElement == 'me' || currentElement == 'primary') {
+                        state['source'].asPrimary = true;
+                    }
                 }else if (nextElement == '['){
-                    state['resource'].asNew = true;
-                    state['resource']['uuid_list'] = JSON.parse(currentElement);
+                    state['source'].asNew = true;
+                    state['source']['uuid_list'] = JSON.parse(currentElement);
                 }else{
                     skipNextWalk = true;
                 }
             }else {
-                state['resource']['uuid'] = currentElement;
+                state['source']['uuid'] = currentElement;
             }
             if (!skipNextWalk)next();
         }
@@ -169,7 +174,7 @@ function prepareWidgetConfig(widgetConfig){
     // if the widgetName containts '__' this means, its in the file  the string before '__' defines. this is like a "local/private" subwidget
     widgetConfig.widgetSource = widgetConfig.widgetNamespace + ':' + (widgetConfig.widgetName.split('__')[0]);
     widgetConfig.widgetData = widgetConfig.widgetResource = widgetConfig.widgetState ?
-        widgetConfig.widgetState['.']['resource']['uuid'] : null;
+        widgetConfig.widgetState['.']['source']['uuid'] : null;
     widgetConfig.widgetView = widgetConfig.widgetState ?
         widgetConfig.widgetState['.']['_activeView'] : null;
 }
@@ -248,6 +253,7 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
                           }
                       }catch (e){
                           if (!error) {
+                            throw e
                               //console.error(e, e.lineNumber || e.number, e.fileName, e.name, e.message);
                               console.error(e.stack);
                               // preventing endless error loop!
@@ -261,7 +267,7 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
                 
                 // building new scope
                 var newScope = keepScope ? scope : scope.$new(widgetConfig.plugin ? undefined : true)
-                var jsConfig = config.forJS();
+                var jsConfig = frontendConfig.forJS();
                
                 currentScope = newScope;  
                 scopeCore.prepareScope($injector, currentScope, scope, jsConfig, widgetConfig, frontendCore)
@@ -314,14 +320,12 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
                         namespace = frontendConfig.widgets.defaults_namespace
                     }
                     widgetConfig.widgetNamespace = namespace;*/
-                    js = js[namespace] ?
-                        js[namespace][widgetConfig.widgetName]
-                        : null/* || js[frontendConfig.widgets.defaults_namespace] ?
-                            js[frontendConfig.widgets.defaults_namespace][widgetConfig.widgetType]
-                            : null*/;
+                    
+                    js = fancyWidgetCore.get(widgetConfig.widgetNamespace, widgetConfig.widgetName, js);
+                    
                     if (!js) {
                         // TODO: get some fallback stuff
-                        console.error('couldnt find js for widget', widgetConfig.widgetIdentifier)
+                        console.error('couldnt find js for widget', widgetConfig.widgetIdentifier, widgetConfig.widgetNamespace, widgetConfig.widgetName)
                     }
                     
                     prepareTemplate(response, js);
@@ -361,7 +365,7 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
         })
         
         if (widgetConfig.widgetState && widgetConfig.widgetState.hasOwnProperty('.') && widgetConfig.widgetState['.'].hasOwnProperty('_active')) {
-            if (widgetConfig.widgetState['.']._active === undefined) { 
+            if (!widgetConfig.widgetState['.']._active) { 
                     $element.addClass(frontendCore.config.frontend_generateClassName('action'))
                 if (widgetConfig.icon) {
                     $element.addClass(frontendCore.config.frontend_generateClassName('shape-icon'))
@@ -430,7 +434,7 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
                             'plugin': false,
                             'required': [],
                             'icon': attr['actionIcon'],
-                            'viewContainer': attr['viewContainer']
+                            'viewContainer': attr['viewContainer'],
                         };
 
                         element.removeAttr('load-widget')
@@ -480,7 +484,7 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
                             'plugin': true,
                             'required': [],
                             'icon': attr['actionIcon'],
-                            'viewContainer': attr['viewContainer']
+                            'viewContainer': attr['viewContainer'],
                         };
                         // TODO: test if controller is available, otherwise ignore this widget
                         element.removeAttr('load-plugin')

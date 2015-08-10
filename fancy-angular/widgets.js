@@ -1,13 +1,27 @@
-define(['fancyPlugin!app:fancy-frontend:widgets', 'fancyPlugin!fancyFrontendConfig', 'fancyPlugin!services'], function($, config, services){
-    $(function() {
-
-            $.widget( config.apps['fancy-angular'].namespace + '.core', $[config.apps['fancy-frontend'].namespace].core, {
+define(['fancyPlugin!app:fancy-frontend:widgets', 'fancyPlugin!fancyFrontendConfig'], function(fancyWidgetCore, config){
+    var $ = fancyWidgetCore.$,
+        widgetConfig = fancyWidgetCore.getWidgetConfig(),
+        AngularCore = {
                     options: {
+                        show_plugins_as_overlay: false
                     },
-
+                    
+                    apply: function(){
+                        if (this.options.scope) {
+                            var ret = this.options.scope.apply.apply(this, arguments);
+                            if (this.updatedContent)this.updatedContent();
+                            return ret;
+                        }
+                        return this._superApply(arguemtns);
+                    },
+                    
                     _create: function(){
                         var $element = this.element;
                         var $this = this;
+                        
+                        if (this.options.scope && this.options.scope.init) {
+                            this.options.scope.init(this);
+                        }
                         this._superApply( arguments );
 /*
                         $this.scope = this.options.scope;
@@ -97,23 +111,65 @@ define(['fancyPlugin!app:fancy-frontend:widgets', 'fancyPlugin!fancyFrontendConf
                             
                         })
                     }
+        };
 
-            });
-            $.widget( config.apps['fancy-angular'].namespace + '.widget',{
-                    options: {
-                    },
-
-                    _create: function(){
-                        this.element.draggable({ snap: true });
-                    },
-
-                    apply: function(){
-                        $scope.$apply()
-                    }
-
-            });
-            
-
+    fancyWidgetCore_widgets = fancyWidgetCore.derive('widget', {
+        namespace: config.apps['fancy-angular'].namespace,
+        name: 'widget',
+        widget: $.extend({}, AngularCore, {
+            initHeader: function(){
+                var ret = this._superApply(arguments);
+                var $sessionStatus = $('<div class="'+ config.frontend_generateClassName('auth-overlay') +'"><span load-plugin="fancy-frontend.auth?" action-icon="profile"></span></div>'),
+                    $authInfo = $('<span>{{ auth.getProfile() }}</span>'),
+                    $hostInfo = $('<span>{{ host.name }}</span>');
+                $authInfo.attr('ng-show', '{{ showAuthStatus() }}');
+                $hostInfo.attr('ng-show', '{{ showHostStatus() }}');
+                $sessionStatus.attr('ng-show', '{{ showSessionStatus() }}');
+                $sessionStatus.append($authInfo)
+                $sessionStatus.append($hostInfo)
+                this.apply($sessionStatus, function(content){this.$header.append(content);}.bind(this))
+                
+                return ret
+            }
+        })
+    });
+    fancyWidgetCore.derive('core', {
+        namespace: config.apps['fancy-angular'].namespace,
+        name: 'core',
+        widget: {}
     })
-            return $;
+    fancyWidgetCore.derive('complete', {
+        namespace: config.apps['fancy-angular'].namespace,
+        name: 'complete',
+        widget: $.extend({}, AngularCore , {
+            _create: function(){
+                if (this.options.scope && this.options.scope.__type && typeof(this['init_' + this.options.scope.__type]) == 'function') {
+                    this['init_' + this.options.scope.__type].apply(this, arguments)
+                }
+                AngularCore._create.apply(this, arguments);
+            }
+            // TODO: get from scope the widget Type and init it.
+            
+        })
+    });
+            //
+            //$.widget( config.apps['fancy-angular'].namespace + '.widget',{
+            //        options: {
+            //        },
+            //
+            //        _create: function(){
+            //            this.element.draggable({ snap: true });
+            //        },
+            //
+            //        apply: function(){
+            //            $scope.$apply()
+            //        }
+            //
+            //});
+    fancyWidgetCore.derive('plugin', {
+        namespace: config.apps['fancy-angular'].namespace,
+        name: 'plugin',
+        widget: AngularCore
+    });
+    return fancyWidgetCore_widgets;
 })
