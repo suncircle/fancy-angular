@@ -3,7 +3,18 @@ define(['fancyPlugin!app:fancy-frontend:widgets', 'fancyPlugin!fancyFrontendConf
         widgetConfig = fancyWidgetCore.getWidgetConfig(),
         AngularCore = {
                     options: {
-                        show_plugins_as_overlay: false
+                        show_plugins_as_overlay: false,
+                    },
+                    addAuthInfo: function($target){
+                        var $sessionStatus = $('<div class="'+ config.frontend_generateClassName('auth-overlay') +'"><span load-plugin="fancy-frontend.auth?" action-icon="profile"></span></div>'),
+                            $authInfo = $('<span>{{ auth.getProfile() }}</span>'),
+                            $hostInfo = $('<span>{{ host.name }}</span>');
+                        $authInfo.attr('ng-show', '{{ showAuthStatus() }}');
+                        $hostInfo.attr('ng-show', '{{ showHostStatus() }}');
+                        $sessionStatus.attr('ng-show', '{{ showSessionStatus() }}');
+                        $sessionStatus.append($authInfo)
+                        $sessionStatus.append($hostInfo)
+                        this.apply($sessionStatus, function(content){$target.append(content);}.bind(this))
                     },
                     
                     apply: function(){
@@ -117,20 +128,6 @@ define(['fancyPlugin!app:fancy-frontend:widgets', 'fancyPlugin!fancyFrontendConf
         namespace: config.apps['fancy-angular'].namespace,
         name: 'widget',
         widget: $.extend({}, AngularCore, {
-            initHeader: function(){
-                var ret = this._superApply(arguments);
-                var $sessionStatus = $('<div class="'+ config.frontend_generateClassName('auth-overlay') +'"><span load-plugin="fancy-frontend.auth?" action-icon="profile"></span></div>'),
-                    $authInfo = $('<span>{{ auth.getProfile() }}</span>'),
-                    $hostInfo = $('<span>{{ host.name }}</span>');
-                $authInfo.attr('ng-show', '{{ showAuthStatus() }}');
-                $hostInfo.attr('ng-show', '{{ showHostStatus() }}');
-                $sessionStatus.attr('ng-show', '{{ showSessionStatus() }}');
-                $sessionStatus.append($authInfo)
-                $sessionStatus.append($hostInfo)
-                this.apply($sessionStatus, function(content){this.$header.append(content);}.bind(this))
-                
-                return ret
-            }
         })
     });
     fancyWidgetCore.derive('core', {

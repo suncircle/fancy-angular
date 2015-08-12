@@ -216,7 +216,7 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
             return
         }
 
-        function fancyWidgetWatchAction(widgetIdentifier) {
+        function fancyWidgetWatchAction(widgetIdentifier, widgetConfig, $element) {
           $element.addClass(frontendCore.config.frontend_generateClassName('state-initializing'));
           
           var src = widgetIdentifier.split(':')[0];
@@ -363,7 +363,7 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
             }
             //event.stopPropagation();
         })
-        
+        var $jq_elem = $($element);
         if (widgetConfig.widgetState && widgetConfig.widgetState.hasOwnProperty('.') && widgetConfig.widgetState['.'].hasOwnProperty('_active')) {
             if (!widgetConfig.widgetState['.']._active) { 
                     $element.addClass(frontendCore.config.frontend_generateClassName('action'))
@@ -372,20 +372,21 @@ function get_linker_func(widgetConfig, $compile, $templateCache,   $anchorScroll
                     $element.addClass(frontendCore.config.frontend_generateClassName('action-' + widgetConfig.icon))
                     $element.attr('tabindex', -1)
                 }
-                var startupHandler = function(){
-                    $element.unbind('click', startupHandler);
-                    $element.unbind('focus', startupHandler);
-                    //$element.removeClass(frontendCore.config.frontend_generateClassName('action'));
-                    fancyWidgetWatchAction(widgetConfig.widgetIdentifier, widgetConfig);
+                var startupHandler = function(event){
+                        var $jq_elem  = $(event.target).closest('.'+frontendCore.config.frontend_generateClassName('action'));
+                        $jq_elem.unbind('click', startupHandler);
+                        $jq_elem.unbind('focus', startupHandler);
+                        //$element.removeClass(frontendCore.config.frontend_generateClassName('action'));
+                        fancyWidgetWatchAction(widgetConfig.widgetIdentifier, widgetConfig, $jq_elem);
                 }
-                $element.bind('click focus', startupHandler)
+                $jq_elem.bind('click focus', startupHandler);
                 return
             }else if (widgetConfig.widgetState['.']._active === false) {
                 //$element.remove()
                 return
             }
         }
-        fancyWidgetWatchAction(widgetConfig.widgetIdentifier, widgetConfig);
+        fancyWidgetWatchAction(widgetConfig.widgetIdentifier, widgetConfig, $element);
     };
  };
 

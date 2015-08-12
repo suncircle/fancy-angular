@@ -236,6 +236,17 @@ define(['fancyPlugin!widget:fancy-frontend:frontend'], function(fancyWidgetConfi
     
     
             _load_widget: function ($widget, response, widget_name, js, scope) {
+                var options = this.get_options($widget[0]);
+                if (($widget[0].nodeName == 'svg')){// && $widget.hasClass(config.frontend_generateClassName('action')))) {
+                    var $new = $('<div></div>'),
+                        $header = $('<header></header>').addClass(config.frontend_generateClassName('header'));
+                        $new.append($header);
+
+                    $new.attr('load-widget', $widget.attr('load-widget') || widget_name);
+                    $widget.wrap($new);
+                    $widget.attr('load-widget', undefined)
+                    $widget = $widget.closest('div[load-widget]');
+                }
                 if (widget_name === undefined) {
                     widget_name = $widget.attr('load-widget');
                 }
@@ -245,7 +256,6 @@ define(['fancyPlugin!widget:fancy-frontend:frontend'], function(fancyWidgetConfi
                 
                 $widget.attr('data-' + this.config.prefix + '-widget-name', widget_name); // .slice(widget_name.search('>')+1)
     
-                var options = this.get_options($widget[0]);
                 if (($widget[0] == this.$root_element) && !this.__scope) {
                     this.setScope(scope);
                 }

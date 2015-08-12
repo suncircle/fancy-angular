@@ -856,6 +856,20 @@ define(['fancyPlugin!angular', 'jquery'], function (angular, $) {
                 event.stopPropagation();
         })
         
+        $scope.getState = function(key, presets){
+            if (!presets) {
+                presets = {}
+            }else{
+                presets = $.extend({}, presets);
+            }
+            
+            if ($parentScope['__state']['.'][key]) {
+                $.extend(presets, $parentScope['__state']['.'][key]);
+            }
+            $.extend(presets, $scope['__state']['.'][key]);
+            return presets
+        };
+        
         $scope.init = function($widget){
             $scope['!private'].$widget = $widget;
             if ($scope.host){
@@ -908,6 +922,10 @@ define(['fancyPlugin!angular', 'jquery'], function (angular, $) {
                             $scope.__defaultWidgetView = value;
                         }
                     }else{
+                        if ($scope.__type == 'plugin' && $parentScope['__state'] && $parentScope['__state']['.'][key]) {
+                            value = $scope.getState(key, value);
+                            // TODO: this is a dirty quickFix. watch for state changes is missing
+                        }
                         if ($parentScope['_' + key]) {
                             $scope['_' + key + ($scope.__type != 'plugin' ? 'Parent': '')] = $parentScope['_' + key];
                             $parentScope.$watch('_' + key, function(new_value, old_value){
@@ -917,6 +935,7 @@ define(['fancyPlugin!angular', 'jquery'], function (angular, $) {
                                 $scope.log.event('(fancy-angular)', '(scope)', 'parents "', key, '" has changed. updating', old_value, 'with', new_value)
                                 $scope['_' + key + ($scope.__type != 'plugin' ? 'Parent': '')] = new_value;
                             })
+                            
                         }
                         
                         if (value.hasOwnProperty('asPrimary')) {
